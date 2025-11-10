@@ -536,8 +536,7 @@
                     check: (pass, state) => {
                         const day = dayNames[new Date().getDay()];
                         return {
-                            satisfied: pass.toLowerCase().includes(day.toLowerCase()),
-                            info: `(Today is ${day})`
+                            satisfied: pass.toLowerCase().includes(day.toLowerCase()),`
                         };
                     }
                 },
