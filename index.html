@@ -453,7 +453,6 @@
             const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
             // --- List of Time-Sensitive Rule IDs ---
-            // *** UPDATED (Rule 12 is now time-sensitive, Rule 65 is not) ***
             const timeSensitiveRuleIds = [12, 21, 35, 36, 43, 44, 52, 56, 60];
 
 
@@ -531,13 +530,13 @@
                     }
                 },
                 {
-                    id: 12, // *** UPDATED RULE 12 ***
+                    id: 12, // *** UPDATED RULE 12 (NO HINT) ***
                     description: "Your password must include the current day of the week.",
                     check: (pass, state) => {
                         const day = dayNames[new Date().getDay()];
                         return {
                             satisfied: pass.toLowerCase().includes(day.toLowerCase()),
-                            info: `(Today is ${day})`
+                            info: "" // Hint removed
                         };
                     }
                 },
@@ -1111,13 +1110,13 @@
                     }
                 },
                 {
-                    id: 55,
+                    id: 55, // *** UPDATED HINT ***
                     description: (state) => `Your password must include the secret word ('${state.game.secretWord}') encrypted with a +${state.game.caesarShift} Caesar cipher.`,
                     check: (pass, state) => {
                         const encryptedWord = caesarCipher(state.game.secretWord, state.game.caesarShift);
                         return {
                             satisfied: pass.includes(encryptedWord),
-                            info: `The encrypted word is: '${encryptedWord}'`
+                            info: 'e.g., if shift was 3 and word was "CAT", you would type "FDW"'
                         };
                     }
                 },
@@ -1181,7 +1180,7 @@
                         const timeString = `${hours}:${minutes}`;
                         return {
                             satisfied: pass.includes(timeString),
-                            info: `e.g., ${timeString}`
+                            info: "" // Hint removed
                         };
                     }
                 },
@@ -1261,7 +1260,7 @@
                     }
                 },
                 {
-                    id: 65, // *** REPLACED RULE 65 (NO HINT) ***
+                    id: 65, // *** UPDATED RULE 65 (NO HINT) ***
                     description: (state) => `Your password must include the day of the week it was ${state.game.daysAgo} days ago.`,
                     check: (pass, state) => {
                         return {
@@ -1271,7 +1270,7 @@
                     }
                 },
                 {
-                    id: 66, 
+                    id: 66, // *** UPDATED RULE 66 (NO HINT) ***
                     description: "Your password must include the answer to 2+2.",
                     check: (pass, state) => {
                         // *** HARD-LOCK FIX ***
@@ -1280,7 +1279,7 @@
                         }
                         return {
                             satisfied: pass.includes("4"),
-                            info: "e.g., 4"
+                            info: "" // Hint removed
                         };
                     }
                 },
@@ -1434,21 +1433,19 @@
 
 
             // --- Game State Variables ---
-            const LOCAL_STORAGE_KEY = 'passwordGameState_v24_75rules'; // Updated key
+            const LOCAL_STORAGE_KEY = 'passwordGameState_v25_75rules'; // Updated key
             
-            // *** UPDATED WITH 100% WINNABLE SANITY CHECK & NEW RULE 65 ***
+            // *** UPDATED WITH NEW RANGES AND 100% WINNABLE SANITY CHECK ***
             const createNewGameState = () => {
                 const randomAtomic = atomicWords[randomInt(0, atomicWords.length - 1)];
                 const riddleChoice = randomInt(0, 1) === 0 ? 1 : 2;
                 const riddle = riddleChoice === 1 ? "I have cities, but no houses; forests, but no trees; and water, but no fish. What am I?" : "What has to be broken before you can use it?";
                 const riddleSolution = riddleChoice === 1 ? "map" : "egg"; 
                 
-                // *** NEW RULE 65 DATA ***
                 const daysAgo = 91;
                 const pastDate = new Date();
                 pastDate.setDate(pastDate.getDate() - daysAgo);
                 const pastDayName = dayNames[pastDate.getDay()];
-                // *** END NEW RULE 65 DATA ***
                 
                 let d1, d2, exactDigitCount, digitSumTarget;
                 let isAchievable = false;
@@ -1463,7 +1460,7 @@
                     }
                     
                     exactDigitCount = randomInt(2, 5); // From Rule 69
-                    const targetSumRange = [20, 30]; // From old Rule 16 randomizer
+                    const targetSumRange = [25, 150]; // *** NEW WIDER RANGE ***
 
                     // 2. Calculate achievable sum range based on constraints
                     const availableDigits = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].filter(d => d !== d1 && d !== d2);
@@ -1490,9 +1487,9 @@
                     password: "",
                     activeRuleIds: [1],
                     // --- Randomized Game Targets ---
-                    digitSumTarget: digitSumTarget, 
+                    digitSumTarget: digitSumTarget, // *** NEW WIDER RANGE ***
                     numGreaterThanTarget: randomInt(20, 60),
-                    romanSumTarget: randomInt(5, 15),
+                    romanSumTarget: randomInt(15, 1500), // *** NEW WIDER RANGE ***
                     lengthMultipleTarget: randomInt(3, 5),
                     temperatureTarget: randomInt(40, 60),
                     exactDigitCount: exactDigitCount, 
