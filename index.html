@@ -453,7 +453,7 @@
             const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
             // --- List of Time-Sensitive Rule IDs ---
-            // *** UPDATED (Rule 12 is now time-sensitive) ***
+            // *** UPDATED (Rule 12 is now time-sensitive, Rule 65 is not) ***
             const timeSensitiveRuleIds = [12, 21, 35, 36, 43, 44, 52, 56, 60];
 
 
@@ -536,7 +536,8 @@
                     check: (pass, state) => {
                         const day = dayNames[new Date().getDay()];
                         return {
-                            satisfied: pass.toLowerCase().includes(day.toLowerCase()),`
+                            satisfied: pass.toLowerCase().includes(day.toLowerCase()),
+                            info: `(Today is ${day})`
                         };
                     }
                 },
@@ -545,6 +546,7 @@
                     description: "Your password must *not* include the letter 'e'.",
                     check: (pass, state) => {
                          // *** HARD-LOCK FIX ***
+                         // Rule 12 (Wednesday, Tuesday) or 37 (time) or 74 (end) or 50 (end)
                          if (state.game.activeRuleIds.includes(12) || state.game.activeRuleIds.includes(37) || state.game.activeRuleIds.includes(74) || state.game.activeRuleIds.includes(50)) {
                              return { satisfied: true, info: "Rule overridden by a later rule." };
                          }
@@ -1259,17 +1261,17 @@
                     }
                 },
                 {
-                    id: 65, // *** REPLACED RULE 65 ***
+                    id: 65, // *** REPLACED RULE 65 (NO HINT) ***
                     description: (state) => `Your password must include the day of the week it was ${state.game.daysAgo} days ago.`,
                     check: (pass, state) => {
                         return {
                             satisfied: pass.toLowerCase().includes(state.game.pastDayName.toLowerCase()),
-                            info: `(It was a ${state.game.pastDayName})`
+                            info: "" // The hint is now gone!
                         };
                     }
                 },
                 {
-                    id: 66, // *** REPLACED RULE 66 ***
+                    id: 66, 
                     description: "Your password must include the answer to 2+2.",
                     check: (pass, state) => {
                         // *** HARD-LOCK FIX ***
@@ -1337,7 +1339,7 @@
                     }
                 },
                 {
-                    id: 72, // *** REPLACED RULE 72 ***
+                    id: 72, 
                     description: "Your password must contain at least three different HTML tags.",
                     check: (pass, state) => {
                         const matches = pass.match(/<([a-zA-Z0-9]+)>/g) || [];
@@ -1349,7 +1351,7 @@
                     }
                 },
                 {
-                    id: 73, // *** REPLACED RULE 73 ***
+                    id: 73, 
                     description: "The number of special characters in your password must be a prime number.",
                     check: (pass, state) => {
                         // This regex finds special chars, but NOT emojis.
@@ -1432,7 +1434,7 @@
 
 
             // --- Game State Variables ---
-            const LOCAL_STORAGE_KEY = 'passwordGameState_v23_75rules'; // Updated key
+            const LOCAL_STORAGE_KEY = 'passwordGameState_v24_75rules'; // Updated key
             
             // *** UPDATED WITH 100% WINNABLE SANITY CHECK & NEW RULE 65 ***
             const createNewGameState = () => {
