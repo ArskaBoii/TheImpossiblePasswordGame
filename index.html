@@ -210,6 +210,27 @@
             accent-color: var(--color-highlight);
             cursor: pointer;
         }
+        
+        /* --- NEW: Mud Event Reminder --- */
+        #mudEventReminder {
+            display: none; /* Hidden by default */
+            padding: 1rem;
+            margin-bottom: 1rem;
+            background-color: #f5EFE6; /* A 'muddy' or 'dry' color */
+            border: 2px solid #8B4513; /* Brown border */
+            border-radius: var(--border-radius);
+            color: #5D4037;
+            font-size: 1.1rem;
+            text-align: center;
+            line-height: 1.5;
+        }
+        
+        #mudEventReminder strong {
+            color: #D32F2F; /* Red for the timer */
+            font-size: 1.2rem;
+            display: block;
+            margin-top: 0.5rem;
+        }
 
         /* --- Button Controls --- */
         #resetButton, #cheatButton {
@@ -329,6 +350,8 @@
                 I've read all the rules and this is the end.
             </label>
         </div>
+        
+        <div id="mudEventReminder"></div>
 
         <ol id="rulesList"></ol>
         
@@ -371,8 +394,131 @@
                  return (pass.match(/\d/g) || []).reduce((acc, digit) => acc + parseInt(digit, 10), 0);
             }
 
+            // *** UPDATED findElement with ALL 118 elements ***
             const findElement = (str) => {
-                const elements = {"hydrogen":{symbol:"H"},"helium":{symbol:"He"},"lithium":{symbol:"Li"},"beryllium":{symbol:"Be"},"boron":{symbol:"B"},"carbon":{symbol:"C"},"nitrogen":{symbol:"N"},"oxygen":{symbol:"O"},"fluorine":{symbol:"F"},"neon":{symbol:"Ne"},"sodium":{symbol:"Na"},"magnesium":{symbol:"Mg"},"aluminum":{symbol:"Al"},"silicon":{symbol:"Si"},"phosphorus":{symbol:"P"},"sulfur":{symbol:"S"},"chlorine":{symbol:"Cl"},"argon":{symbol:"Ar"},"potassium":{symbol:"K"},"calcium":{symbol:"Ca"},"scandium":{symbol:"Sc"},"titanium":{symbol:"Ti"},"vanadium":{symbol:"V"},"chromium":{symbol:"Cr"},"manganese":{symbol:"Mn"},"iron":{symbol:"Fe"},"cobalt":{symbol:"Co"},"nickel":{symbol:"Ni"},"copper":{symbol:"Cu"},"zinc":{symbol:"Zn"},"gold":{symbol:"Au"},"silver":{symbol:"Ag"},"platinum":{symbol:"Pt"},"mercury":{symbol:"Hg"},"lead":{symbol:"Pb"},"tin":{symbol:"Sn"},"uranium":{symbol:"U"},"plutonium":{symbol:"Pu"}};
+                const elements = {
+                    "hydrogen": { "symbol": "H" },
+                    "helium": { "symbol": "He" },
+                    "lithium": { "symbol": "Li" },
+                    "beryllium": { "symbol": "Be" },
+                    "boron": { "symbol": "B" },
+                    "carbon": { "symbol": "C" },
+                    "nitrogen": { "symbol": "N" },
+                    "oxygen": { "symbol": "O" },
+                    "fluorine": { "symbol": "F" },
+                    "neon": { "symbol": "Ne" },
+                    "sodium": { "symbol": "Na" },
+                    "magnesium": { "symbol": "Mg" },
+                    "aluminium": { "symbol": "Al" },
+                    "aluminum": { "symbol": "Al" },
+                    "silicon": { "symbol": "Si" },
+                    "phosphorus": { "symbol": "P" },
+                    "sulfur": { "symbol": "S" },
+                    "chlorine": { "symbol": "Cl" },
+                    "argon": { "symbol": "Ar" },
+                    "potassium": { "symbol": "K" },
+                    "calcium": { "symbol": "Ca" },
+                    "scandium": { "symbol": "Sc" },
+                    "titanium": { "symbol": "Ti" },
+                    "vanadium": { "symbol": "V" },
+                    "chromium": { "symbol": "Cr" },
+                    "manganese": { "symbol": "Mn" },
+                    "iron": { "symbol": "Fe" },
+                    "cobalt": { "symbol": "Co" },
+                    "nickel": { "symbol": "Ni" },
+                    "copper": { "symbol": "Cu" },
+                    "zinc": { "symbol": "Zn" },
+                    "gallium": { "symbol": "Ga" },
+                    "germanium": { "symbol": "Ge" },
+                    "arsenic": { "symbol": "As" },
+                    "selenium": { "symbol": "Se" },
+                    "bromine": { "symbol": "Br" },
+                    "krypton": { "symbol": "Kr" },
+                    "rubidium": { "symbol": "Rb" },
+                    "strontium": { "symbol": "Sr" },
+                    "yttrium": { "symbol": "Y" },
+                    "zirconium": { "symbol": "Zr" },
+                    "niobium": { "symbol": "Nb" },
+                    "molybdenum": { "symbol": "Mo" },
+                    "technetium": { "symbol": "Tc" },
+                    "ruthenium": { "symbol": "Ru" },
+                    "rhodium": { "symbol": "Rh" },
+                    "palladium": { "symbol": "Pd" },
+                    "silver": { "symbol": "Ag" },
+                    "cadmium": { "symbol": "Cd" },
+                    "indium": { "symbol": "In" },
+                    "tin": { "symbol": "Sn" },
+                    "antimony": { "symbol": "Sb" },
+                    "tellurium": { "symbol": "Te" },
+                    "iodine": { "symbol": "I" },
+                    "xenon": { "symbol": "Xe" },
+                    "caesium": { "symbol": "Cs" },
+                    "cesium": { "symbol": "Cs" },
+                    "barium": { "symbol": "Ba" },
+                    "lanthanum": { "symbol": "La" },
+                    "cerium": { "symbol": "Ce" },
+                    "praseodymium": { "symbol": "Pr" },
+                    "neodymium": { "symbol": "Nd" },
+                    "promethium": { "symbol": "Pm" },
+                    "samarium": { "symbol": "Sm" },
+                    "europium": { "symbol": "Eu" },
+                    "gadolinium": { "symbol": "Gd" },
+                    "terbium": { "symbol": "Tb" },
+                    "dysprosium": { "symbol": "Dy" },
+                    "holmium": { "symbol": "Ho" },
+                    "erbium": { "symbol": "Er" },
+                    "thulium": { "symbol": "Tm" },
+                    "ytterbium": { "symbol": "Yb" },
+                    "lutetium": { "symbol": "Lu" },
+                    "hafnium": { "symbol": "Hf" },
+                    "tantalum": { "symbol": "Ta" },
+                    "tungsten": { "symbol": "W" },
+                    "rhenium": { "symbol": "Re" },
+                    "osmium": { "symbol": "Os" },
+                    "iridium": { "symbol": "Ir" },
+                    "platinum": { "symbol": "Pt" },
+                    "gold": { "symbol": "Au" },
+                    "mercury": { "symbol": "Hg" },
+                    "thallium": { "symbol": "Tl" },
+                    "lead": { "symbol": "Pb" },
+                    "bismuth": { "symbol": "Bi" },
+                    "polonium": { "symbol": "Po" },
+                    "astatine": { "symbol": "At" },
+                    "radon": { "symbol": "Rn" },
+                    "francium": { "symbol": "Fr" },
+                    "radium": { "symbol": "Ra" },
+                    "actinium": { "symbol": "Ac" },
+                    "thorium": { "symbol": "Th" },
+                    "protactinium": { "symbol": "Pa" },
+                    "uranium": { "symbol": "U" },
+                    "neptunium": { "symbol": "Np" },
+                    "plutonium": { "symbol": "Pu" },
+                    "americium": { "symbol": "Am" },
+                    "curium": { "symbol": "Cm" },
+                    "berkelium": { "symbol": "Bk" },
+                    "californium": { "symbol": "Cf" },
+                    "einsteinium": { "symbol": "Es" },
+                    "fermium": { "symbol": "Fm" },
+                    "mendelevium": { "symbol": "Md" },
+                    "nobelium": { "symbol": "No" },
+                    "lawrencium": { "symbol": "Lr" },
+                    "rutherfordium": { "symbol": "Rf" },
+                    "dubnium": { "symbol": "Db" },
+                    "seaborgium": { "symbol": "Sg" },
+                    "bohrium": { "symbol": "Bh" },
+                    "hassium": { "symbol": "Hs" },
+                    "meitnerium": { "symbol": "Mt" },
+                    "darmstadtium": { "symbol": "Ds" },
+                    "roentgenium": { "symbol": "Rg" },
+                    "copernicium": { "symbol": "Cn" },
+                    "nihonium": { "symbol": "Nh" },
+                    "flerovium": { "symbol": "Fl" },
+                    "moscovium": { "symbol": "Mc" },
+                    "livermorium": { "symbol": "Lv" },
+                    "tennessine": { "symbol": "Ts" },
+                    "oganesson": { "symbol": "Og" }
+                };
+                
                 const lowerPass = str.toLowerCase();
                 for (const name in elements) {
                     if (lowerPass.includes(name)) {
@@ -522,10 +668,10 @@
                     check: (pass, state) => pass.length >= 10
                 },
                 {
-                    id: 11,
+                    id: 11, // *** UPDATED RULE 11 ***
                     description: "Your password must include a color name.",
                     check: (pass, state) => {
-                        const colors = ["red", "blue", "green", "yellow", "orange", "purple", "black", "white", "pink", "brown"];
+                        const colors = ["red", "blue", "green", "yellow", "orange", "purple", "black", "white", "pink", "brown", "cyan", "magenta", "lime", "teal", "navy", "olive", "maroon", "silver", "gold", "aqua", "beige", "indigo", "violet"];
                         return colors.some(c => pass.toLowerCase().includes(c));
                     }
                 },
@@ -754,6 +900,10 @@
                             // Set the persistent flag only once
                             if (!state.game.peteHasBeenAdded) {
                                 state.game.peteHasBeenAdded = true;
+                                
+                                // *** NEW: Schedule the first mud event ***
+                                state.game.mudEvent.nextEventTime = Date.now() + randomInt(90000, 300000); // 90-300 seconds
+                                
                                 saveGame(); 
                             }
                         } else {
@@ -1513,7 +1663,12 @@
                     hurricaneFired: false,
                     peteHasBeenAdded: false, 
                     peteIsAlive: true,
-                    poopRulePassed: false 
+                    poopRulePassed: false,
+                    mudEvent: {
+                        nextEventTime: null,
+                        isHardened: false,
+                        starveTime: null
+                    }
                 };
             };
             
@@ -1532,6 +1687,7 @@
             const finalCheck = document.getElementById('finalCheck');
             const ruleCounter = document.getElementById('ruleCounter'); 
             const deathMessage = document.getElementById('deathMessage'); 
+            const mudReminder = document.getElementById('mudEventReminder'); // NEW MUD ELEMENT
 
 
             // --- Core Game Logic ---
@@ -1593,6 +1749,7 @@
                 finalCheckWrapper.style.display = 'none';
                 finalCheck.checked = false;
                 deathMessage.style.display = 'none'; 
+                mudReminder.style.display = 'none';
                 
                 saveGame(); 
                 
@@ -1641,7 +1798,7 @@
 
                 const password = passwordInput.value;
                 
-                if (gameState.peteHasBeenAdded && !password.includes("🐛")) {
+                if (gameState.peteHasBeenAdded && !password.includes("🐛") && !gameState.mudEvent.isHardened) {
                     gameState.peteIsAlive = false;
                     showDeathMessage("You deleted Pete! You must start over.");
                     return;
@@ -1814,6 +1971,67 @@
                 if (!gameState.peteIsAlive) {
                     hasTimeRuleChanged = true;
                 }
+                
+                // *** NEW MUD EVENT LOGIC ***
+                if (gameState.peteHasBeenAdded && !isGameWon) {
+                    const now = Date.now();
+                    
+                    // --- Check 1: Is it time to trigger a new event? ---
+                    if (!gameState.mudEvent.isHardened && gameState.mudEvent.nextEventTime && now >= gameState.mudEvent.nextEventTime) {
+                        
+                        // Only trigger if Pete is currently safe
+                        if (password.includes('💩🐛💩')) {
+                            gameState.mudEvent.isHardened = true;
+                            gameState.mudEvent.starveTime = now + 30000; // 30 second timer
+                            
+                            // Force-replace the mud with rock in the user's input
+                            passwordInput.value = passwordInput.value.replace(/💩🐛💩/g, '🪨🐛🪨');
+                            
+                            // Force a full re-check, save, and UI update
+                            onPasswordInput(); 
+                            return; // Exit onTimeUpdate early to avoid conflicts
+                        } else {
+                            // Pete isn't safe (maybe mid-hurricane?), try again in 30s
+                            gameState.mudEvent.nextEventTime = now + 30000;
+                        }
+                    }
+
+                    // --- Check 2: Is the event currently active? ---
+                    if (gameState.mudEvent.isHardened) {
+                        const isPeteSafe = password.includes('💩🐛💩');
+
+                        if (isPeteSafe) {
+                            // Player saved Pete!
+                            gameState.mudEvent.isHardened = false;
+                            gameState.mudEvent.starveTime = null;
+                            gameState.mudEvent.nextEventTime = Date.now() + randomInt(90000, 300000); // Schedule next event
+                            mudReminder.style.display = 'none';
+                            saveGame();
+                        } else {
+                            // Pete is not safe. Check the timer.
+                            const secondsLeft = Math.ceil((gameState.mudEvent.starveTime - now) / 1000);
+
+                            if (secondsLeft > 0) {
+                                // Show the reminder and countdown
+                                mudReminder.innerHTML = `
+                                    The mud has hardened! Change 🪨 back to 💩 to feed Pete!
+                                    <strong>Time left: ${secondsLeft}s</strong>
+                                `;
+                                mudReminder.style.display = 'block';
+                                hasTimeRuleChanged = true; // Keep the UI updating
+                            } else {
+                                // Timer ran out. Game Over.
+                                gameState.peteIsAlive = false; 
+                                mudReminder.style.display = 'none';
+                                // The death message will be shown by the main checkRulesAndReorder loop
+                            }
+                        }
+                    } else {
+                        // Event is not active, hide the reminder.
+                        mudReminder.style.display = 'none';
+                    }
+                }
+                // *** END NEW MUD EVENT LOGIC ***
                 
                 if (hasTimeRuleChanged || (ruleStateData && ruleStateData.scramblePassword)) {
                     checkRulesAndReorder(true); 
