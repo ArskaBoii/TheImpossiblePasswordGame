@@ -3,33 +3,49 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>The Impossible Password Game (Functionality-Only)</title>
+    <title>The Impossible Password Game (Expressive-Only)</title>
     
     <style>
-        /* --- Minimal, Functional, NO-ANIMATION UI --- */
+        /* --- NEW: Material 3 Expressive (NO ANIMATIONS) --- */
         :root {
-            --color-bg: #f0f0f0;
-            --color-text: #111;
-            --color-card: #ffffff;
-            --color-input: #f0f0f0;
-            --color-border: #ccc;
-            --color-highlight: #0061a4;
-            --color-satisfied: #dff6dd;
-            --color-satisfied-text: #0a390a;
-            --color-broken: #fdebee;
-            --color-broken-text: #410e0b;
+            /* M3 Expressive Color Palette */
+            --color-bg: #FEF7FF; /* Light lavender/pink background */
+            --color-text: #1E192B; /* Dark text */
+            --color-card: #FFFFFF;
+            --color-input: #F3EDF7; /* Light purple input bg */
+            --color-border: #CAC4D0;
+            
+            /* Primary (Purple) */
+            --color-primary: #6750A4;
+            --color-on-primary: #FFFFFF;
+            --color-primary-container: #EADDFF;
+            --color-on-primary-container: #21005E;
+
+            /* Error (Red) */
+            --color-error: #B3261E;
+            --color-on-error: #FFFFFF;
+            --color-error-container: #F9DEDC;
+            --color-on-error-container: #410E0B;
+            
+            /* Neutral/Surface */
+            --color-surface-variant: #E7E0EC;
+            --color-on-surface-variant: #49454F;
             
             --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             --font-mono: "Courier New", Courier, monospace;
             
             --shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            --border-radius: 8px;
+            --border-radius: 28px; /* M3's large rounded corner */
+            --border-radius-small: 12px;
         }
 
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
+            /* NO ANIMATIONS! */
+            transition: none 0s;
+            animation: none 0s;
         }
 
         body {
@@ -49,14 +65,16 @@
             border-radius: var(--border-radius);
             box-shadow: var(--shadow);
             position: relative;
+            border: 1px solid var(--color-border);
         }
 
         h1 {
             text-align: center;
-            color: var(--color-highlight);
+            color: var(--color-primary);
             margin-top: 3.5rem; 
             margin-bottom: 0.5rem;
             font-size: 2rem;
+            font-weight: 700;
         }
 
         h1 .icon {
@@ -65,7 +83,7 @@
 
         .intro {
             text-align: center;
-            color: #555;
+            color: var(--color-on-surface-variant);
             margin-bottom: 2rem;
             font-style: italic;
         }
@@ -84,14 +102,20 @@
             font-size: 1.25rem;
             background-color: var(--color-input);
             color: var(--color-text);
-            border: 2px solid var(--color-border);
-            border-radius: var(--border-radius);
+            border: 2px solid var(--color-input);
+            border-radius: var(--border-radius-small);
             font-family: var(--font-mono);
             resize: none; 
             overflow: hidden; 
             line-height: 1.6; 
             white-space: pre-wrap;
             word-break: break-all;
+        }
+        
+        #passwordInput:focus {
+            outline: 2px solid var(--color-primary);
+            border-color: var(--color-primary);
+            background-color: var(--color-bg);
         }
         
         #passwordInput:disabled {
@@ -102,7 +126,7 @@
         /* --- Rule Counter --- */
         #ruleCounter {
             font-weight: bold;
-            color: var(--color-highlight);
+            color: var(--color-primary);
             text-align: center;
             margin-bottom: 1.5rem;
             font-size: 1.1rem;
@@ -118,17 +142,17 @@
 
         .rule {
             display: flex;
-            align-items: flex-start;
-            padding: 1rem;
-            border-radius: var(--border-radius);
+            align-items: center; /* Center text vertically */
+            padding: 0.75rem 1.25rem;
+            border-radius: var(--border-radius); /* Fully rounded */
             border: 2px solid var(--color-border);
-            opacity: 1; /* Instantly visible */
-            transform: none; /* No movement */
+            min-height: 52px;
+            font-weight: 500;
         }
         
         .rule-number {
-            font-weight: bold;
-            color: var(--color-highlight);
+            font-weight: 700;
+            color: var(--color-on-surface-variant);
             margin-right: 0.75rem;
             font-size: 1.1rem;
             flex-shrink: 0;
@@ -136,63 +160,69 @@
 
         .rule-text {
             flex-grow: 1;
+            color: var(--color-on-surface-variant);
         }
 
         .rule-info {
             display: block;
             font-size: 0.9rem;
             font-style: italic;
-            color: #555;
+            color: var(--color-on-surface-variant);
             margin-top: 0.25rem;
         }
 
         /* Rule States (Instant) */
         .rule.satisfied {
-            background-color: var(--color-satisfied);
-            border-color: #a5d6a7; 
-            color: var(--color-satisfied-text);
+            /* M3 Filled Button Style */
+            background-color: var(--color-primary);
+            border-color: var(--color-primary);
+            color: var(--color-on-primary);
         }
         
-        .rule.satisfied .rule-number {
-            color: var(--color-satisfied-text);
-        }
-        
+        .rule.satisfied .rule-number,
+        .rule.satisfied .rule-text,
         .rule.satisfied .rule-info {
-            color: #388e3c;
-        }
-
-        .rule.satisfied::before {
-            content: "✅";
-            margin-right: 0.75rem;
-            font-size: 1.2rem;
+            color: var(--color-on-primary);
         }
         
         .rule.broken {
-            background-color: var(--color-broken);
-            border-color: #f5c6cb; 
-            color: var(--color-broken-text);
+            /* M3 Error Button Style */
+            background-color: var(--color-error);
+            border-color: var(--color-error);
+            color: var(--color-on-error);
         }
         
-        .rule.broken .rule-number {
-            color: #b71c1c;
-        }
-        
+        .rule.broken .rule-number,
+        .rule.broken .rule-text,
         .rule.broken .rule-info {
-            color: #d32f2f;
+            color: var(--color-on-error);
         }
 
+        /* Remove old icons */
+        .rule.satisfied::before,
         .rule.broken::before {
-            content: "❌";
-            margin-right: 0.75rem;
-            font-size: 1.2rem;
+            content: "";
+            margin-right: 0;
+        }
+        
+        /* --- NEW EMOJI VISIBILITY FIX --- */
+        .rule .emoji {
+            /* Adds a subtle "pop" from the background */
+            text-shadow: 0 0 1px rgba(0,0,0,0.4);
+        }
+        .rule.satisfied .emoji,
+        .rule.broken .emoji {
+            /* Adds a subtle white "glow" to pop against dark backgrounds */
+            text-shadow: 0 0 3px rgba(255,255,255,0.7), 
+                         0 0 5px rgba(255,255,255,0.5);
         }
         
         /* --- Final Checkbox --- */
         #finalCheckWrapper {
             display: none; 
-            margin-bottom: 1.5rem; /* Moved margin to bottom */
+            margin-bottom: 1.5rem; 
             padding: 1rem;
-            background-color: var(--color-input);
+            background-color: var(--color-primary-container);
             border-radius: var(--border-radius);
             text-align: center;
         }
@@ -200,14 +230,14 @@
         #finalCheckWrapper label {
             font-size: 1.1rem;
             font-weight: bold;
-            color: var(--color-highlight);
+            color: var(--color-on-primary-container);
             cursor: pointer;
         }
         
         #finalCheck {
             margin-right: 0.75rem;
             transform: scale(1.5);
-            accent-color: var(--color-highlight);
+            accent-color: var(--color-primary);
             cursor: pointer;
         }
         
@@ -216,17 +246,18 @@
             display: none; /* Hidden by default */
             padding: 1rem;
             margin-bottom: 1rem;
-            background-color: #f5EFE6; /* A 'muddy' or 'dry' color */
-            border: 2px solid #8B4513; /* Brown border */
+            background-color: var(--color-error-container);
+            border: 2px solid var(--color-error);
             border-radius: var(--border-radius);
-            color: #5D4037;
+            color: var(--color-on-error-container);
             font-size: 1.1rem;
+            font-weight: 500;
             text-align: center;
             line-height: 1.5;
         }
         
         #mudEventReminder strong {
-            color: #D32F2F; /* Red for the timer */
+            color: var(--color-error); /* Red for the timer */
             font-size: 1.2rem;
             display: block;
             margin-top: 0.5rem;
@@ -236,37 +267,41 @@
         #resetButton, #cheatButton {
             position: absolute;
             top: 1.5rem;
-            padding: 0.5rem 1rem;
+            padding: 0.5rem 1.25rem;
             font-size: 0.9rem;
             font-weight: bold;
-            border-radius: var(--border-radius);
+            border-radius: 20px; /* Fully rounded */
             cursor: pointer;
-            background-color: var(--color-input);
-            border: 2px solid var(--color-border);
-            color: var(--color-highlight);
+            background-color: var(--color-primary-container);
+            border: 1px solid var(--color-primary-container);
+            color: var(--color-on-primary-container);
+            height: 40px;
         }
 
         #resetButton {
             left: 1.5rem;
+            background-color: var(--color-error-container);
+            border-color: var(--color-error-container);
+            color: var(--color-on-error-container);
         }
         #resetButton:hover {
-            background-color: var(--color-broken);
-            color: var(--color-broken-text);
+            background-color: var(--color-error);
+            color: var(--color-on-error);
         }
         
         #cheatButton {
             right: 1.5rem;
         }
         #cheatButton:hover {
-            background-color: var(--color-satisfied);
-            color: var(--color-satisfied-text);
+            background-color: var(--color-primary);
+            color: var(--color-on-primary);
         }
 
         /* --- Win State --- */
         .win-message {
             text-align: center;
             font-size: 2rem;
-            color: var(--color-satisfied-text);
+            color: var(--color-primary);
         }
         
         .final-password-wrapper {
@@ -275,7 +310,7 @@
             color: var(--color-text);
             background-color: var(--color-input);
             padding: 1rem;
-            border-radius: var(--border-radius);
+            border-radius: var(--border-radius-small);
             border: 2px solid var(--color-border);
             margin-top: 1.5rem;
             word-break: break-all;
@@ -290,14 +325,15 @@
             left: 50%;
             transform: translate(-50%, -50%); /* Centered */
             padding: 2rem;
-            background-color: rgba(10, 10, 10, 0.95);
-            color: #f44336;
+            background-color: var(--color-error-container);
+            color: var(--color-error);
             font-size: 2rem;
             font-weight: bold;
             text-align: center;
             z-index: 10000;
             border-radius: var(--border-radius);
             box-shadow: var(--shadow);
+            border: 2px solid var(--color-error);
         }
 
         /* --- Chaos Element --- */
@@ -315,9 +351,8 @@
             .container { margin: 0.5rem auto; padding: 1rem; }
             h1 { font-size: 1.5rem; margin-top: 4rem; }
             #passwordInput { font-size: 1rem; padding: 0.75rem 1rem; min-height: 50px; }
-            .rule { padding: 0.75rem; }
+            .rule { padding: 0.75rem 1rem; }
             .rule-number { font-size: 1rem; margin-right: 0.5rem; }
-            .rule::before { font-size: 1rem; margin-right: 0.5rem; }
             #resetButton, #cheatButton { padding: 0.25rem 0.75rem; font-size: 0.8rem; top: 1rem; }
             #resetButton { left: 1rem; }
             #cheatButton { right: 1rem; }
@@ -593,6 +628,8 @@
             ];
 
             const allCountryCodes = ["AF","AX","AL","DZ","AS","AD","AO","AI","AQ","AG","AR","AM","AW","AU","AT","AZ","BS","BH","BD","BB","BY","BE","BZ","BJ","BM","BT","BO","BQ","BA","BW","BV","BR","IO","BN","BG","BF","BI","CV","KH","CM","CA","KY","CF","TD","CL","CN","CX","CC","CO","KM","CG","CD","CK","CR","CI","HR","CU","CW","CY","CZ","DK","DJ","DM","DO","EC","EG","SV","GQ","ER","EE","SZ","ET","FK","FO","FJ","FI","FR","GF","PF","TF","GA","GM","GE","DE","GH","GI","GR","GL","GD","GP","GU","GT","GG","GN","GW","GY","HT","HM","VA","HN","HK","HU","IS","IN","ID","IR","IQ","IE","IM","IL","IT","JM","JP","JE","JO","KZ","KE","KI","KP","KR","KW","KG","LA","LV","LB","LS","LR","LY","LI","LT","LU","MO","MG","MW","MY","MV","ML","MT","MH","MQ","MR","MU","YT","MX","FM","MD","MC","MN","ME","MS","MA","MZ","MM","NA","NR","NP","NL","NC","NZ","NI","NE","NG","NU","NF","MP","NO","OM","PK","PW","PS","PA","PG","PY","PE","PH","PN","PL","PT","PR","QA","MK","RO","RU","RW","RE","BL","SH","KN","LC","MF","PM","VC","WS","SM","ST","SA","SN","RS","SC","SL","SG","SX","SK","SI","SB","SO","ZA","GS","SS","ES","LK","SD","SR","SJ","SE","CH","SY","TW","TJ","TZ","TH","TL","TG","TK","TO","TT","TN","TR","TM","TC","TV","UG","UA","AE","GB","US","UM","UY","UZ","VU","VE","VN","VG","VI","WF","EH","YE","ZM","ZW"];
+            
+            // *** THIS IS THE FIX ***
             const usStateCodes = ["AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA", "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ", "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY"];
             
             const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -855,8 +892,8 @@
                     }
                 },
                 {
-                    id: 27,
-                    description: "Your password must include two poop emojis: 💩💩.",
+                    id: 27, // *** EMOJI FIX ***
+                    description: "Your password must include two poop emojis: <span class='emoji'>💩</span><span class='emoji'>💩</span>.",
                     check: (pass, state) => {
                         if (state.game.poopRulePassed) {
                             return { satisfied: true, info: "Requirement met." };
@@ -875,8 +912,8 @@
                     }
                 },
                 {
-                    id: 28, // *** PETE LOGIC FIX ***
-                    description: "Oh no! A wild 🐛 has appeared... His name is Pete. Keep him safe in some soil 💩🐛💩.",
+                    id: 28, // *** EMOJI + PETE LOGIC FIX ***
+                    description: "Oh no! A wild <span class='emoji'>🐛</span> has appeared... His name is Pete. Keep him safe in some soil <span class='emoji'>💩</span><span class='emoji'>🐛</span><span class='emoji'>💩</span>.",
                     check: (pass, state) => {
                         const chaosEl = document.getElementById('chaos');
                         const isSafe = pass.includes("💩🐛💩");
@@ -1118,8 +1155,8 @@
                     }
                 },
                 {
-                    id: 44,
-                    description: "The hurricane passed! But Pete is exposed! Get him back in his soil 💩🐛💩.",
+                    id: 44, // *** EMOJI FIX ***
+                    description: "The hurricane passed! But Pete is exposed! Get him back in his soil <span class='emoji'>💩</span><span class='emoji'>🐛</span><span class='emoji'>💩</span>.",
                     check: (pass, state) => {
                         if (!state.game.peteIsAlive) {
                             return { satisfied: false, info: "It's too late for Pete." };
@@ -1271,8 +1308,8 @@
                     }
                 },
                 {
-                    id: 56,
-                    description: (state) => `Your password's temperature must be below ${state.game.temperatureTarget || "..."}°C. Letters heat it (+1°C), ❄️ or 🥶 cool it (-10°C).`,
+                    id: 56, // *** EMOJI FIX ***
+                    description: (state) => `Your password's temperature must be below ${state.game.temperatureTarget || "..."}°C. Letters heat it (+1°C), <span class='emoji'>❄️</span> or <span class='emoji'>🥶</span> cool it (-10°C).`,
                     check: (pass, state) => {
                         const letters = (pass.match(/[a-zA-Z]/g) || []).length;
                         const coolers = (pass.match(/[❄️🥶]/g) || []).length * 10;
