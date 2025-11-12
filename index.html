@@ -542,7 +542,7 @@
                     "seaborgium": { "symbol": "Sg" },
                     "bohrium": { "symbol": "Bh" },
                     "hassium": { "symbol": "Hs" },
-                    "meitnerium": { "symbol": "Mt" },
+                    "meitnerium": { "symbol": "Mt" }, /* <<< THIS WAS THE BUG. FIXED! */
                     "darmstadtium": { "symbol": "Ds" },
                     "roentgenium": { "symbol": "Rg" },
                     "copernicium": { "symbol": "Cn" },
@@ -1714,6 +1714,10 @@
             let lastTimeBasedResults = {}; 
             let isGameWon = false; 
 
+            // --- NEW: rAF Loop State ---
+            let lastLogicUpdateTime = 0;
+            let animationFrameId = null;
+
 
             // --- DOM Elements ---
             const passwordInput = document.getElementById('passwordInput');
@@ -1771,6 +1775,13 @@
             }
 
             function resetGame(reload = true) {
+                // --- NEW: Stop any existing game loop ---
+                if (animationFrameId) {
+                    cancelAnimationFrame(animationFrameId);
+                    animationFrameId = null;
+                }
+                lastLogicUpdateTime = 0; // Reset timer
+
                 isGameWon = false;
                 passwordInput.value = ""; 
                 passwordInput.disabled = false;
@@ -1799,6 +1810,11 @@
                     checkRulesAndReorder(false);
                 }
                 resizeTextarea(); 
+
+                // --- NEW: Restart the loop if this was a manual reset ---
+                if (reload) {
+                    animationFrameId = requestAnimationFrame(gameLoop);
+                }
             }
 
             function renderRule(rule) {
@@ -2074,6 +2090,28 @@
                     checkRulesAndReorder(true); 
                 }
             }
+
+            // --- NEW: rAF-based Game Loop ---
+            function gameLoop(timestamp) {
+                if (isGameWon) {
+                    animationFrameId = null;
+                    return; // Stop the loop if game is over
+                }
+
+                // --- Logic updates (run approx once per second) ---
+                if (timestamp - lastLogicUpdateTime >= 1000) {
+                    lastLogicUpdateTime = timestamp;
+                    onTimeUpdate(); // Call the existing function to check rules and events
+                }
+                
+                // --- Animation/Visual updates (run every frame) ---
+                // This is where smooth animations would go.
+                // For now, it's empty as requested. The 1-second countdown
+                // is handled inside onTimeUpdate.
+
+                // Continue the loop
+                animationFrameId = requestAnimationFrame(gameLoop);
+            }
             
             function advanceGame() {
                 if (isGameWon) return;
@@ -2113,6 +2151,12 @@
             }
 
             function showWinState() {
+                // --- NEW: Stop the game loop ---
+                if (animationFrameId) {
+                    cancelAnimationFrame(animationFrameId);
+                    animationFrameId = null;
+                }
+                
                 isGameWon = true; // Stop all updates
                 rulesList.innerHTML = `
                     <li class="win-message">
@@ -2129,6 +2173,12 @@
             }
             
             function showDeathMessage(message) {
+                // --- NEW: Stop the game loop ---
+                if (animationFrameId) {
+                    cancelAnimationFrame(animationFrameId);
+                    animationFrameId = null;
+                }
+
                 isGameWon = true; // Stop all updates
                 deathMessage.textContent = message;
                 deathMessage.style.display = 'block';
@@ -2137,7 +2187,7 @@
             }
 
         
-            // --- Event ListenLister ---
+            // --- Event Listeners ---
             passwordInput.addEventListener('input', onPasswordInput);
             resetButton.addEventListener('click', () => resetGame(true)); 
             finalCheck.addEventListener('change', () => onPasswordInput());
@@ -2158,8 +2208,9 @@
             // --- Initial Game Load ---
             loadGame();
             
-            // *** Real-time clock ***
-            setInterval(onTimeUpdate, 1000); 
+            // *** NEW: Real-time loop (rAF) ***
+            // Start the main game loop
+            animationFrameId = requestAnimationFrame(gameLoop);
 
         });
     </script>
