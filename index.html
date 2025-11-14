@@ -609,9 +609,100 @@
                 return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             }
 
+            // --- NEW: YouTube URL Validation ---
+            const GEMINI_API_KEY = "AIzaSyCdhhnq3twazYVLzvHWQ1Ab5czjLUPo5-I";
+            // Stricter regex to capture the 11-character ID
+            const YOUTUBE_URL_REGEX = /(https?:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
+
+            /**
+             * Uses Gemini with Search grounding to check if a YouTube URL is real.
+             * @param {string} videoUrl - The full URL to check.
+             * @param {string} videoId - The 11-character video ID.
+             * @param {object} state - The ruleStateData object to update.
+             */
+            async function checkYoutubeUrl(videoUrl, videoId, state) {
+                if (!GEMINI_API_KEY) {
+                    console.error("Gemini API key is missing.");
+                    state.youtubeCheckStatus = 'invalid'; // Fail if no key
+                    return;
+                }
+
+                state.isYoutubeCheckRunning = true;
+                state.youtubeCheckUrl = videoUrl;
+                state.youtubeCheckStatus = 'checking';
+
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${GEMINI_API_KEY}`;
+                
+                const systemPrompt = "You are a silent fact-checking assistant. The user will provide a YouTube URL. You must use your search tool to determine if this URL links to a real, public, and existing video. Respond with ONLY 'YES' if the video is real and public, and 'NO' if it is fake, private, deleted, or does not exist. Do not add any other words or punctuation.";
+                const userQuery = videoUrl;
+
+                const payload = {
+                    contents: [{ parts: [{ text: userQuery }] }],
+                    tools: [{ "google_search": {} }],
+                    systemInstruction: {
+                        parts: [{ text: systemPrompt }]
+                    },
+                };
+
+                try {
+                    // Implement exponential backoff for retries
+                    let response;
+                    let retries = 0;
+                    const maxRetries = 3;
+                    let delay = 1000;
+
+                    while (retries < maxRetries) {
+                        response = await fetch(apiUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+
+                        if (response.ok) {
+                            break; // Success
+                        }
+
+                        if (response.status === 429 || response.status >= 500) {
+                            // Throttled or server error, wait and retry
+                            retries++;
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                            delay *= 2; // Exponential backoff
+                        } else {
+                            // Other client-side error (e.g., 400), don't retry
+                            throw new Error(`API request failed with status ${response.status}`);
+                        }
+                    }
+
+                    if (!response || !response.ok) {
+                        throw new Error(`API request failed after ${maxRetries} retries.`);
+                    }
+
+                    const result = await response.json();
+                    const candidate = result.candidates?.[0];
+                    const text = candidate?.content?.parts?.[0]?.text?.trim().toUpperCase();
+                    
+                    if (text === 'YES') {
+                        state.youtubeCheckStatus = 'valid';
+                        // Try to get a title from grounding metadata for a better UI
+                        const attribution = candidate.groundingMetadata?.groundingAttributions?.[0];
+                        state.youtubeVideoTitle = attribution?.web?.title || videoId;
+                    } else {
+                        state.youtubeCheckStatus = 'invalid';
+                    }
+
+                } catch (error) {
+                    console.error("Error checking YouTube URL:", error);
+                    state.youtubeCheckStatus = 'invalid'; // Set as invalid on error
+                } finally {
+                    state.isYoutubeCheckRunning = false;
+                }
+            }
+            // --- END: YouTube URL Validation ---
+
+
             const findElement = (str) => {
                 const elements = {
-                    "hydrogen": { "symbol": "H" }, "helium": { "symbol": "He" }, "lithium": { "symbol": "Li" }, "beryllium": { "symbol": "Be" }, "boron": { "symbol": "B" }, "carbon": { "symbol": "C" }, "nitrogen": { "symbol": "N" }, "oxygen": { "symbol": "O" }, "fluorine": { "symbol": "F" }, "neon": { "symbol": "Ne" }, "sodium": { "symbol": "Na" }, "magnesium": { "symbol": "Mg" }, "aluminium": { "symbol": "Al" }, "aluminum": { "symbol": "Al" }, "silicon": { "symbol": "Si" }, "phosphorus": { "symbol": "P" }, "sulfur": { "symbol": "S" }, "chlorine": { "symbol": "Cl" }, "argon": { "symbol": "Ar" }, "potassium": { "symbol": "K" }, "calcium": { "symbol": "Ca" }, "scandium": { "symbol": "Sc" }, "titanium": { "symbol": "Ti" }, "vanadium": { "symbol": "V" }, "chromium": { "symbol": "Cr" }, "manganese": { "symbol": "Mn" }, "iron": { "symbol": "Fe" }, "cobalt": { "symbol": "Co" }, "nickel": { "symbol": "Ni" }, "copper": { "symbol": "Cu" }, "zinc": { "symbol": "Zn" }, "gallium": { "symbol": "Ga" }, "germanium": { "symbol": "Ge" }, "arsenic": { "symbol": "As" }, "selenium": { "symbol": "Se" }, "bromine": { "symbol": "Br" }, "krypton": { "symbol": "Kr" }, "rubidium": { "symbol": "Rb" }, "strontium": { "symbol": "Sr" }, "yttrium": { "symbol": "Y" }, "zirconium": { "symbol": "Zr" }, "niobium": { "symbol": "Nb" }, "molybdenum": { "symbol": "Mo" }, "technetium": { "symbol": "Tc" }, "ruthenium": { "symbol": "Ru" }, "rhodium": { "symbol": "Rh" }, "palladium": { "symbol": "Pd" }, "silver": { "symbol": "Ag" }, "cadmium": { "symbol": "Cd" }, "indium": { "symbol": "In" }, "tin": { "symbol": "Sn" }, "antimony": { "symbol": "Sb" }, "tellurium": { "symbol": "Te" }, "iodine": { "symbol": "I" }, "xenon": { "symbol": "Xe" }, "caesium": { "symbol": "Cs" }, "cesium": { "symbol": "Cs" }, "barium": { "symbol": "Ba" }, "lanthanum": { "symbol": "La" }, "cerium": { "symbol": "Ce" }, "praseodymium": { "symbol": "Pr" }, "neodymium": { "symbol": "Nd" }, "promethium": { "symbol": "Pm" }, "samarium": { "symbol": "Sm" }, "europium": { "symbol": "Eu" }, "gadolinium": { "symbol": "Gd" }, "terbium": { "symbol": "Tb" }, "dysprosium": { "symbol": "Dy" }, "holmium": { "symbol": "Ho" }, "erbium": { "symbol": "Er" }, "thulium": { "symbol": "Tm" }, "ytterbium": { "symbol": "Yb" }, "lutetium": { "symbol": "Lu" }, "hafnium": { "symbol": "Hf" }, "tantalum": { "symbol": "Ta" }, "tungsten": { "symbol": "W" }, "rhenium": { "symbol": "Re" }, "osmium": { "symbol": "Os" }, "iridium": { "symbol": "Ir" }, "platinum": { "symbol": "Pt" }, "gold": { "symbol": "Au" }, "mercury": { "symbol": "Hg" }, "thallium": { "symbol": "Tl" }, "lead": { "symbol": "Pb" }, "bismuth": { "symbol": "Bi" }, "polonium": { "symbol": "Po" }, "astatine": { "symbol": "At" }, "radon": { "symbol": "Rn" }, "francium": { "symbol": "Fr" }, "radium": { "symbol": "Ra" }, "actinium": { "symbol": "Ac" }, "thorium": { "symbol": "Th" }, "protactinium": { "symbol": "Pa" }, "uranium": { "symbol": "U" }, "neptunium": { "symbol": "Np" }, "plutonium": { "symbol": "Pu" }, "americium": { "symbol": "Am" }, "curium": { "symbol": "Cm" }, "berkelium": { "symbol": "Bk" }, "californium": { "symbol": "Cf" }, "einsteinium": { "symbol": "Es" }, "fermium": { "symbol": "Fm" }, "mendelevium": { "symbol": "Md" }, "nobelium": { "symbol": "No" }, "lawrencium": { "symbol": "Lr" }, "rutherfordium": { "symbol": "Rf" }, "dubnium": { "symbol": "Db" }, "seaborgium": { "symbol": "Sg" }, "bohrium": { "symbol": "Bh" }, "hassium": { "symbol": "Hs" }, "meitnerium": { "symbol": "Mt" }, "darmstadtium": { "symbol": "Ds" }, "roentgenium": { "symbol": "Rg" }, "copernicium": { "symbol": "Cn" }, "nihonium": { "symbol": "Nh" }, "flerovium": { "symbol": "Fl" }, "moscovium": { "symbol": "Mc" }, "livermorium": { "symbol": "Lv" }, "tennessine": { "symbol": "Ts" }, "oganesson": { "symbol": "Og" }
+                    "hydrogen": { "symbol": "H" }, "helium": { "symbol": "He" }, "lithium": { "symbol": "Li" }, "beryllium": { "symbol": "Be" }, "boron": { "symbol": "B" }, "carbon": { "symbol": "C" }, "nitrogen": { "symbol": "N" }, "oxygen": { "symbol": "O" }, "fluorine": { "symbol": "F" }, "neon": { "symbol": "Ne" }, "sodium": { "symbol": "Na" }, "magnesium": { "symbol": "Mg" }, "aluminium": { "symbol": "Al" }, "aluminum": { "symbol": "Al" }, "silicon": { "symbol": "Si" }, "phosphorus": { "symbol": "P" }, "sulfur": { "symbol": "S" }, "chlorine": { "symbol": "Cl" }, "argon": { "symbol": "Ar" }, "potassium": { "symbol": "K" }, "calcium": { "symbol": "Ca" }, "scandium": { "symbol": "Sc" }, "titanium": { "symbol": "Ti" }, "vanadium": { "symbol": "V" }, "chromium": { "symbol": "Cr" }, "manganese": { "symbol": "Mn" }, "iron": { "symbol": "Fe" }, "cobalt": { "symbol": "Co" }, "nickel": { "symbol": "Ni" }, "copper": { "symbol": "Cu" }, "zinc": { "symbol": "Zn" }, "gallium": { "symbol": "Ga" }, "germanium": { "symbol": "Ge" }, "arsenic": { "symbol": "As" }, "selenium": { "symbol": "Se" }, "bromine": { "symbol": "Br" }, "krypton": { "symbol": "Kr" }, "rubidium": { "symbol": "Rb" }, "strontium": { "symbol": "Sr" }, "yttrium": { "symbol": "Y" }, "zirconium": { "symbol": "Zr" }, "niobium": { "symbol": "Nb" }, "molybdenum": { "symbol": "Mo" }, "technetium": { "symbol": "Tc" }, "ruthenium": { "symbol": "Ru" }, "rhodium": { "symbol": "Rh" }, "palladium": { "symbol": "Pd" }, "silver": { "symbol": "Ag" }, "cadmium": { "symbol":"Cd" }, "indium": { "symbol": "In" }, "tin": { "symbol": "Sn" }, "antimony": { "symbol": "Sb" }, "tellurium": { "symbol": "Te" }, "iodine": { "symbol": "I" }, "xenon": { "symbol": "Xe" }, "caesium": { "symbol": "Cs" }, "cesium": { "symbol": "Cs" }, "barium": { "symbol": "Ba" }, "lanthanum": { "symbol": "La" }, "cerium": { "symbol": "Ce" }, "praseodymium": { "symbol": "Pr" }, "neodymium": { "symbol":"Nd" }, "promethium": { "symbol": "Pm" }, "samarium": { "symbol": "Sm" }, "europium": { "symbol": "Eu" }, "gadolinium": { "symbol": "Gd" }, "terbium": { "symbol": "Tb" }, "dysprosium": { "symbol": "Dy" }, "holmium": { "symbol": "Ho" }, "erbium": { "symbol": "Er" }, "thulium": { "symbol": "Tm" }, "ytterbium": { "symbol": "Yb" }, "lutetium": { "symbol": "Lu" }, "hafnium": { "symbol": "Hf" }, "tantalum": { "symbol": "Ta" }, "tungsten": { "symbol": "W" }, "rhenium": { "symbol": "Re" }, "osmium": { "symbol": "Os" }, "iridium": { "symbol": "Ir" }, "platinum": { "symbol": "Pt" }, "gold": { "symbol": "Au" }, "mercury": { "symbol": "Hg" }, "thallium": { "symbol": "Tl" }, "lead": { "symbol": "Pb" }, "bismuth": { "symbol": "Bi" }, "polonium": { "symbol": "Po" }, "astatine": { "symbol": "At" }, "radon": { "symbol": "Rn" }, "francium": { "symbol": "Fr" }, "radium": { "symbol": "Ra" }, "actinium": { "symbol": "Ac" }, "thorium": { "symbol": "Th" }, "protactinium": { "symbol": "Pa" }, "uranium": { "symbol": "U" }, "neptunium": { "symbol": "Np" }, "plutonium": { "symbol": "Pu" }, "americium": { "symbol": "Am" }, "curium": { "symbol": "Cm" }, "berkelium": { "symbol": "Bk" }, "californium": { "symbol": "Cf" }, "einsteinium": { "symbol": "Es" }, "fermium": { "symbol": "Fm" }, "mendelevium": { "symbol": "Md" }, "nobelium": { "symbol": "No" }, "lawrencium": { "symbol": "Lr" }, "rutherfordium": { "symbol": "Rf" }, "dubnium": { "symbol": "Db" }, "seaborgium": { "symbol": "Sg" }, "bohrium": { "symbol": "Bh" }, "hassium": { "symbol": "Hs" }, "meitnerium": { "symbol": "Mt" }, "darmstadtium": { "symbol": "Ds" }, "roentgenium": { "symbol": "Rg" }, "copernicium": { "symbol": "Cn" }, "nihonium": { "symbol": "Nh" }, "flerovium": { "symbol": "Fl" }, "moscovium": { "symbol": "Mc" }, "livermorium": { "symbol": "Lv" }, "tennessine": { "symbol": "Ts" }, "oganesson": { "symbol": "Og" }
                 };
                 
                 const lowerPass = str.toLowerCase();
@@ -1255,10 +1346,43 @@
                 },
                 {
                     id: 39,
-                    description: "Your password must include a valid YouTube video URL.",
+                    description: "Your password must include a valid, public YouTube video URL.",
                     check: (pass, state) => {
-                        const regex = /(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/(watch\?v=)?[a-zA-Z0-9_-]{11}/;
-                        return regex.test(pass);
+                        const match = pass.match(YOUTUBE_URL_REGEX);
+                        
+                        if (!match) {
+                            // Reset state if URL is removed
+                            if (state.data.youtubeCheckStatus === 'valid') {
+                                state.data.youtubeCheckStatus = null;
+                                state.data.youtubeCheckUrl = null;
+                                state.data.youtubeVideoTitle = null;
+                            }
+                            return { satisfied: false, info: "e.g., youtube.com/watch?v=..." };
+                        }
+                        
+                        const videoUrl = match[0];
+                        const videoId = match[3]; // The 11-character ID
+
+                        // Trigger check if URL is new and not already running
+                        if (videoUrl !== state.data.youtubeCheckUrl && !state.data.isYoutubeCheckRunning) {
+                            // Pass the state.data object to be modified
+                            checkYoutubeUrl(videoUrl, videoId, state.data);
+                        }
+
+                        // Return status based on saved state
+                        switch (state.data.youtubeCheckStatus) {
+                            case 'valid':
+                                // Use the video title if we found one, otherwise just the URL
+                                const infoText = state.data.youtubeVideoTitle ? `Found: ${state.data.youtubeVideoTitle}` : "Video Found";
+                                return { satisfied: true, info: infoText };
+                            case 'invalid':
+                                return { satisfied: false, info: "Video not found or is private.", highlightRegex: new RegExp(escapeRegExp(videoUrl), 'g') };
+                            case 'checking':
+                                return { satisfied: false, info: "Checking URL..." };
+                            default:
+                                // This case happens when the regex matches but the check hasn't started
+                                return { satisfied: false, info: "Validating URL..." };
+                        }
                     }
                 },
                 {
@@ -1915,7 +2039,14 @@
             };
             
             let gameState = createNewGameState();
-            let ruleStateData = {}; 
+            let ruleStateData = {
+                // --- NEW: YouTube check state ---
+                youtubeCheckUrl: null,       // The last URL we checked
+                youtubeCheckStatus: null,    // null | 'checking' | 'valid' | 'invalid'
+                isYoutubeCheckRunning: false,
+                youtubeVideoTitle: null      // Store the video title if found
+                // --- END: YouTube check state ---
+            }; 
             let lastTimeBasedResults = {}; 
             let isGameWon = false; 
 
@@ -2003,7 +2134,14 @@
 
                 gameState = createNewGameState();
                 
-                ruleStateData = {}; 
+                ruleStateData = {
+                    // --- NEW: YouTube check state ---
+                    youtubeCheckUrl: null,
+                    youtubeCheckStatus: null, 
+                    isYoutubeCheckRunning: false,
+                    youtubeVideoTitle: null
+                    // --- END: YouTube check state ---
+                }; 
                 lastTimeBasedResults = {};
                 ruleCleanupTimers = {}; // <-- ADDED: Reset the timer map
                 document.getElementById('chaos').style.display = 'none';
@@ -2157,7 +2295,12 @@
                     gameState.hurricaneFired = true; 
                     const scrambledPass = [...password].sort(() => 0.5 - Math.random()).join('');
                     passwordInput.value = scrambledPass; 
-                    onPasswordInput(); // Force one update right after scramble
+                    
+                    // --- MODIFICATION: Must manually call saveGame() ---
+                    saveGame();
+                    resizeTextarea();
+                    // Do NOT call onPasswordInput() as that is now just for user input
+                    
                     return; 
                 }
                 
@@ -2193,90 +2336,100 @@
                 
                 const orderedRuleIds = [...brokenTimerRules, ...nonTimerUnsatisfiedRules, ...satisfiedRuleIds];
                 
-                /* --- FLIP ANIMATION --- */
+                
+                // --- FIX: Check if the order has *actually* changed ---
+                const currentDomIds = Array.from(rulesList.children).map(li => parseInt(li.id.split('-')[1]));
+                const orderHasChanged = JSON.stringify(orderedRuleIds) !== JSON.stringify(currentDomIds);
 
-                const firstPositions = {};
-                const deltas = {}; // <-- ADDED to store deltas
-                for (const ruleId of gameState.activeRuleIds) {
-                    const ruleElement = document.getElementById(`rule-${ruleId}`);
-                    if (ruleElement) {
-                        firstPositions[ruleId] = ruleElement.getBoundingClientRect();
-                    }
-                }
+                // Only run the expensive FLIP animation if the order is different
+                if (orderHasChanged) {
+                
+                    /* --- FLIP ANIMATION --- */
 
-                orderedRuleIds.forEach(ruleId => {
-                    const ruleElement = document.getElementById(`rule-${ruleId}`);
-                    if (ruleElement) {
-                        rulesList.appendChild(ruleElement);
-                    }
-                });
-
-                for (const ruleId of gameState.activeRuleIds) {
-                    const ruleElement = document.getElementById(`rule-${ruleId}`);
-                    if (!ruleElement || !firstPositions[ruleId]) continue;
-
-                    const lastPosition = ruleElement.getBoundingClientRect();
-                    const firstPosition = firstPositions[ruleId];
-
-                    const deltaX = firstPosition.left - lastPosition.left;
-                    const deltaY = firstPosition.top - lastPosition.top;
-                    
-                    deltas[ruleId] = { x: deltaX, y: deltaY }; // <-- ADDED: Store deltaY
-
-                    // --- MODIFICATION: Removed the 'if (deltaX === 0 && deltaY === 0) continue;' check ---
-                    // Now all elements, even non-moving ones, get their transform and transition explicitly set.
-                    // This prevents 'teleporting' on subsequent moves.
-
-                    ruleElement.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
-                    ruleElement.style.transition = 'none';
-                    
-                    // CRITICAL FIX: Force Reflow/Recalculation
-                    ruleElement.offsetHeight; 
-                }
-
-                requestAnimationFrame(() => {
+                    const firstPositions = {};
+                    const deltas = {}; // <-- ADDED to store deltas
                     for (const ruleId of gameState.activeRuleIds) {
                         const ruleElement = document.getElementById(`rule-${ruleId}`);
-                        if (!ruleElement) continue;
-
-                        // --- NEW Z-INDEX LOGIC (FIXED) ---
-                        const delta = deltas[ruleId];
-                        
-                        // Use a small tolerance for floating point errors
-                        if (delta && delta.y > 0.1) { // Element is moving UP (making room for a satisfied rule)
-                            ruleElement.style.zIndex = '10'; // Stay ON TOP
-                        } else if (delta && delta.y < -0.1) { // Element is moving DOWN (it was just satisfied)
-                            ruleElement.style.zIndex = '1'; // Go BEHIND
-                        } else {
-                            ruleElement.style.zIndex = '5'; // Default (not moving)
+                        if (ruleElement) {
+                            firstPositions[ruleId] = ruleElement.getBoundingClientRect();
                         }
-                        // --- END NEW LOGIC ---
-                        
-                        // --- FIX: Cancel any pending cleanup from the *previous* animation ---
-                        if (ruleCleanupTimers[ruleId]) {
-                            clearTimeout(ruleCleanupTimers[ruleId]);
-                        }
-                        // --- END FIX ---
-
-                        // Apply the transition and play the animation
-                        ruleElement.style.transition = `transform var(--m3-duration-fluid-settle) var(--m3-ease-physics-spring)`;
-                        ruleElement.style.transform = '';
-
-                        // --- FIX: Store the new cleanup timer ID ---
-                        // 'transitionend' won't fire if the delta is 0,
-                        // which leaves z-index and transition properties "stuck" on the element,
-                        // breaking the *next* animation.
-                        ruleCleanupTimers[ruleId] = setTimeout(() => {
-                            if (ruleElement) { // Ensure element still exists
-                                ruleElement.style.transition = '';
-                                ruleElement.style.zIndex = '';
-                            }
-                            delete ruleCleanupTimers[ruleId]; // Clean up the timer map
-                        }, 500); // 500ms must match --m3-duration-fluid-settle
                     }
-                });
+
+                    orderedRuleIds.forEach(ruleId => {
+                        const ruleElement = document.getElementById(`rule-${ruleId}`);
+                        if (ruleElement) {
+                            rulesList.appendChild(ruleElement);
+                        }
+                    });
+
+                    for (const ruleId of gameState.activeRuleIds) {
+                        const ruleElement = document.getElementById(`rule-${ruleId}`);
+                        if (!ruleElement || !firstPositions[ruleId]) continue;
+
+                        const lastPosition = ruleElement.getBoundingClientRect();
+                        const firstPosition = firstPositions[ruleId];
+
+                        const deltaX = firstPosition.left - lastPosition.left;
+                        const deltaY = firstPosition.top - lastPosition.top;
+                        
+                        deltas[ruleId] = { x: deltaX, y: deltaY }; // <-- ADDED: Store deltaY
+
+                        // --- MODIFICATION: Removed the 'if (deltaX === 0 && deltaY === 0) continue;' check ---
+                        // Now all elements, even non-moving ones, get their transform and transition explicitly set.
+                        // This prevents 'teleporting' on subsequent moves.
+
+                        ruleElement.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+                        ruleElement.style.transition = 'none';
+                        
+                        // CRITICAL FIX: Force Reflow/Recalculation
+                        ruleElement.offsetHeight; 
+                    }
+
+                    requestAnimationFrame(() => {
+                        for (const ruleId of gameState.activeRuleIds) {
+                            const ruleElement = document.getElementById(`rule-${ruleId}`);
+                            if (!ruleElement) continue;
+
+                            // --- NEW Z-INDEX LOGIC (FIXED) ---
+                            const delta = deltas[ruleId];
+                            
+                            // Use a small tolerance for floating point errors
+                            if (delta && delta.y > 0.1) { // Element is moving UP (making room for a satisfied rule)
+                                ruleElement.style.zIndex = '10'; // Stay ON TOP
+                            } else if (delta && delta.y < -0.1) { // Element is moving DOWN (it was just satisfied)
+                                ruleElement.style.zIndex = '1'; // Go BEHIND
+                            } else {
+                                ruleElement.style.zIndex = '5'; // Default (not moving)
+                            }
+                            // --- END NEW LOGIC ---
+                            
+                            // --- FIX: Cancel any pending cleanup from the *previous* animation ---
+                            if (ruleCleanupTimers[ruleId]) {
+                                clearTimeout(ruleCleanupTimers[ruleId]);
+                            }
+                            // --- END FIX ---
+
+                            // Apply the transition and play the animation
+                            ruleElement.style.transition = `transform var(--m3-duration-fluid-settle) var(--m3-ease-physics-spring)`;
+                            ruleElement.style.transform = '';
+
+                            // --- FIX: Store the new cleanup timer ID ---
+                            // 'transitionend' won't fire if the delta is 0,
+                            // which leaves z-index and transition properties "stuck" on the element,
+                            // breaking the *next* animation.
+                            ruleCleanupTimers[ruleId] = setTimeout(() => {
+                                if (ruleElement) { // Ensure element still exists
+                                    ruleElement.style.transition = '';
+                                    ruleElement.style.zIndex = '';
+                                }
+                                delete ruleCleanupTimers[ruleId]; // Clean up the timer map
+                            }, 500); // 500ms must match --m3-duration-fluid-settle
+                        }
+                    });
+                    
+                    /* --- END FLIP ANIMATION --- */
                 
-                /* --- END FLIP ANIMATION --- */
+                } // --- END FIX: End of orderHasChanged check ---
 
 
                 // --- Rule Progression Logic (Only if not a time update) ---
@@ -2290,6 +2443,10 @@
                         if (nextRule && !gameState.activeRuleIds.includes(nextRule.id)) {
                             gameState.activeRuleIds.push(nextRule.id);
                             renderRule(nextRule); 
+                            
+                            // --- FIX: Must call checkRulesAndReorder immediately after render ---
+                            // This ensures the new rule is immediately processed and animated
+                            // (the 'orderHasChanged' check will catch it)
                             checkRulesAndReorder(false); 
                         }
                     } else if (gameState.activeRuleIds.length === allRules.length) {
@@ -2301,16 +2458,15 @@
                 }
             }
             
-            // --- NEW: Re-instated onPasswordInput ---
+            // --- MODIFIED: This function NO LONGER runs game logic ---
             function onPasswordInput() {
                 // These are cheap, run them instantly
                 resizeTextarea();
                 saveGame(); 
 
-                // --- REMOVED DEBOUNCE (setTimeout) ---
-                // This will force the animation to run on every single keystroke,
-                // which is what you asked for.
-                checkRulesAndReorder(false); 
+                // --- REMOVED checkRulesAndReorder(false) ---
+                // As requested, the game logic will NO LONGER update on input.
+                // It will only update in the gameLoop (synced to refresh rate).
             }
 
             function onTimeUpdate() {
@@ -2432,7 +2588,12 @@
                     return;
                 }
 
-                /* --- REMOVED 60FPS LOGIC --- */
+                // --- MODIFIED: Main logic now runs every frame ---
+                // This is the update "synced with refresh rate" you asked for.
+                // This will check all rules and run animations on every frame.
+                // We pass 'false' for 'isTimeUpdate'
+                checkRulesAndReorder(false);
+
 
                 // --- LOGIC THAT RUNS ONCE PER SECOND ---
                 if (timestamp - lastLogicUpdateTime >= 1000) {
@@ -2474,7 +2635,9 @@
                         renderRule(nextRule);
                     }
                 }
-
+                
+                // --- FIX: Must call checkRulesAndReorder manually ---
+                // (since renderRule no longer calls it)
                 checkRulesAndReorder(false);
             }
 
@@ -2511,7 +2674,7 @@
                 deathMessage.textContent = message;
                 deathMessage.style.display = 'block';
 
-                /* Trigger Death Message Animation */
+                /* Trigger DeathMessage Animation */
                 requestAnimationFrame(() => {
                     deathMessage.classList.add('visible');
                 });
@@ -2527,7 +2690,7 @@
 
         
             // --- Event Listeners ---
-            passwordInput.addEventListener('input', onPasswordInput); // <-- RE-ADDED THIS LISTENER
+            passwordInput.addEventListener('input', onPasswordInput); // <-- MODIFIED (no longer runs logic)
             passwordInput.addEventListener('scroll', syncScroll);
             
             /* --- Reset Button Logic --- */
@@ -2568,7 +2731,7 @@
             
             finalCheck.addEventListener('change', () => {
                 // Checkbox changes should be instant, no debounce
-                checkRulesAndReorder(false);
+                // The checkRulesAndReorder in the gameLoop will pick this up on its next frame
                 saveGame();
             });
             
