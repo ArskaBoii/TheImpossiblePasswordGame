@@ -609,95 +609,8 @@
                 return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             }
 
-            // --- NEW: YouTube URL Validation ---
-            const GEMINI_API_KEY = "";
-            // Stricter regex to capture the 11-character ID
-            const YOUTUBE_URL_REGEX = /(https?:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
-
-            /**
-             * Uses Gemini with Search grounding to check if a YouTube URL is real.
-             * @param {string} videoUrl - The full URL to check.
-             * @param {string} videoId - The 11-character video ID.
-             * @param {object} state - The ruleStateData object to update.
-             */
-            async function checkYoutubeUrl(videoUrl, videoId, state) {
-                if (!GEMINI_API_KEY) {
-                    console.error("Gemini API key is missing.");
-                    state.youtubeCheckStatus = 'invalid'; // Fail if no key
-                    return;
-                }
-
-                state.isYoutubeCheckRunning = true;
-                state.youtubeCheckUrl = videoUrl;
-                state.youtubeCheckStatus = 'checking';
-
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${GEMINI_API_KEY}`;
-                
-                const systemPrompt = "You are a silent fact-checking assistant. The user will provide a YouTube URL. You must use your search tool to determine if this URL links to a real, public, and existing video. Respond with ONLY 'YES' if the video is real and public, and 'NO' if it is fake, private, deleted, or does not exist. Do not add any other words or punctuation.";
-                const userQuery = videoUrl;
-
-                const payload = {
-                    contents: [{ parts: [{ text: userQuery }] }],
-                    tools: [{ "google_search": {} }],
-                    systemInstruction: {
-                        parts: [{ text: systemPrompt }]
-                    },
-                };
-
-                try {
-                    // Implement exponential backoff for retries
-                    let response;
-                    let retries = 0;
-                    const maxRetries = 3;
-                    let delay = 1000;
-
-                    while (retries < maxRetries) {
-                        response = await fetch(apiUrl, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(payload)
-                        });
-
-                        if (response.ok) {
-                            break; // Success
-                        }
-
-                        if (response.status === 429 || response.status >= 500) {
-                            // Throttled or server error, wait and retry
-                            retries++;
-                            await new Promise(resolve => setTimeout(resolve, delay));
-                            delay *= 2; // Exponential backoff
-                        } else {
-                            // Other client-side error (e.g., 400), don't retry
-                            throw new Error(`API request failed with status ${response.status}`);
-                        }
-                    }
-
-                    if (!response || !response.ok) {
-                        throw new Error(`API request failed after ${maxRetries} retries.`);
-                    }
-
-                    const result = await response.json();
-                    const candidate = result.candidates?.[0];
-                    const text = candidate?.content?.parts?.[0]?.text?.trim().toUpperCase();
-                    
-                    if (text === 'YES') {
-                        state.youtubeCheckStatus = 'valid';
-                        // Try to get a title from grounding metadata for a better UI
-                        const attribution = candidate.groundingMetadata?.groundingAttributions?.[0];
-                        state.youtubeVideoTitle = attribution?.web?.title || videoId;
-                    } else {
-                        state.youtubeCheckStatus = 'invalid';
-                    }
-
-                } catch (error) {
-                    console.error("Error checking YouTube URL:", error);
-                    state.youtubeCheckStatus = 'invalid'; // Set as invalid on error
-                } finally {
-                    state.isYoutubeCheckRunning = false;
-                }
-            }
-            // --- END: YouTube URL Validation ---
+            // --- REMOVED: YouTube URL Validation ---
+            // Removed GEMINI_API_KEY, YOUTUBE_URL_REGEX, and checkYoutubeUrl function
 
 
             const findElement = (str) => {
@@ -837,6 +750,16 @@
             
             const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
             const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+            
+            // --- NEW: Lists for randomization ---
+            const specialCharsList = ['!', '@', '#', '$', '%', '^', '&', '*', '(', ')'];
+            const emojiList = ['😀', '❤️', '🚀', '⭐', '🤔', '🔥', '💡', '🎉'];
+            const colorList = ["red", "blue", "green", "yellow", "orange", "purple", "black", "white", "pink", "cyan", "magenta"];
+            const zodiacList = ["aries", "taurus", "gemini", "cancer", "leo", "virgo", "libra", "scorpio", "sagittarius", "capricorn", "aquarius", "pisces"];
+            const continentList = ["africa", "antarctica", "asia", "australia", "europe", "north america", "south america"];
+            const fontList = ["Arial", "Helvetica", "Times New Roman", "Courier New", "Verdana", "Georgia"];
+            // --- END NEW ---
+
 
             // --- List of Time-Sensitive Rule IDs ---
             const timeSensitiveRuleIds = [12, 21, 35, 36, 43, 44, 52, 56, 60];
@@ -862,8 +785,15 @@
                 },
                 {
                     id: 4,
-                    description: "Your password must include a special character.",
-                    check: (pass, state) => /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pass)
+                    description: (state) => `Your password must include the special character: ${state.game.randomSpecialChar || "..."}`,
+                    check: (pass, state) => {
+                        const char = state.game.randomSpecialChar;
+                        const isSatisfied = pass.includes(char);
+                        return {
+                            satisfied: isSatisfied,
+                            highlightRegex: isSatisfied ? null : new RegExp(escapeRegExp(char), "g")
+                        };
+                    }
                 },
                 {
                     id: 5,
@@ -895,20 +825,28 @@
                 },
                 {
                     id: 7,
-                    description: "Your password must include an emoji.",
+                    description: (state) => `Your password must include this emoji: <span class='emoji'>${state.game.randomEmoji || "..."}</span>`,
                     check: (pass, state) => {
-                        const regex = /([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/;
-                        return regex.test(pass);
+                        const emoji = state.game.randomEmoji;
+                        const isSatisfied = pass.includes(emoji);
+                        return {
+                            satisfied: isSatisfied,
+                            highlightRegex: isSatisfied ? null : new RegExp(escapeRegExp(emoji), "g")
+                        };
                     }
                 },
                 {
                     id: 8,
-                    description: "A cow says... Your password must include 'moo'.",
+                    description: "A cow says... Your password must include 'moo', and the letter 'o' may not appear anywhere else.",
                     check: (pass, state) => {
-                        const isSatisfied = pass.toLowerCase().includes("moo");
+                        const hasMoo = pass.toLowerCase().includes("moo");
+                        // Find other 'o's, after temporarily removing the 'moo' to not count it
+                        const otherOs = (pass.toLowerCase().replace("moo", "").match(/o/g) || []).length;
+                        const isSatisfied = hasMoo && otherOs === 0;
                         return {
                             satisfied: isSatisfied,
-                            highlightRegex: isSatisfied ? null : /moo/gi
+                            info: `Other 'o's found: ${otherOs}`,
+                            highlightRegex: isSatisfied ? null : /o|moo/gi
                         };
                     }
                 },
@@ -929,10 +867,14 @@
                 },
                 {
                     id: 11,
-                    description: "Your password must include a color name.",
+                    description: (state) => `Your password must include the color '${state.game.randomColor || "..."}'.`,
                     check: (pass, state) => {
-                        const colors = ["red", "blue", "green", "yellow", "orange", "purple", "black", "white", "pink", "brown", "cyan", "magenta", "lime", "teal", "navy", "olive", "maroon", "silver", "gold", "aqua", "beige", "indigo", "violet"];
-                        return colors.some(c => pass.toLowerCase().includes(c));
+                        const color = state.game.randomColor;
+                        const isSatisfied = pass.toLowerCase().includes(color);
+                        return {
+                            satisfied: isSatisfied,
+                            highlightRegex: isSatisfied ? null : new RegExp(escapeRegExp(color), "gi")
+                        };
                     }
                 },
                 {
@@ -992,12 +934,8 @@
                     id: 16,
                     description: (state) => `The digits in your password must add up to ${state.game.digitSumTarget || "..."}.`,
                     check: (pass, state) => {
-                        if (state.game.activeRuleIds.includes(50)) {
-                            return { satisfied: true, info: "Overridden by rule 50." };
-                        }
-                        if (state.game.activeRuleIds.includes(34)) {
-                             return { satisfied: true, info: "Overridden by rule 34." };
-                        }
+                        // --- REMOVED Overrides: This rule is now always active. ---
+                        
                         const totalSum = totalSumAllDigits(pass);
                         const isSatisfied = totalSum === state.game.digitSumTarget;
                         return {
@@ -1009,14 +947,15 @@
                 },
                 {
                     id: 17,
-                    description: "Your password must include a 4-letter word.",
+                    description: "Your password must include a 4-letter word in ALL CAPS.",
                     check: (pass, state) => {
                         return {
-                            satisfied: /\b[a-zA-Z]{4}\b/.test(pass),
-                            info: "e.g., 'this' or 'word'"
+                            satisfied: /\b[A-Z]{4}\b/.test(pass), // Was [a-zA-Z]
+                            info: "e.g., 'THIS' or 'WORD'. Must be ALL CAPS."
                         };
                     }
                 },
+                // --- CLEANUP: Removed duplicate rule 17 ---
                 {
                     id: 18,
                     description: "Your password must include a valid hex color code.",
@@ -1028,6 +967,7 @@
                         };
                     }
                 },
+                // --- CLEANUP: Removed duplicate rule 8 ---
                 {
                     id: 19,
                     description: "Your hex color must be a shade of green.",
@@ -1095,13 +1035,13 @@
                 },
                 {
                     id: 24,
-                    description: "Your password must include a zodiac sign.",
+                    description: (state) => `Your password must include the zodiac sign '${state.game.randomZodiac || "..."}'.`,
                     check: (pass, state) => {
-                        const signs = ["aries", "taurus", "gemini", "cancer", "leo", "virgo", "libra", "scorpio", "sagittarius", "capricorn", "aquarius", "pisces"];
-                        const found = signs.find(sign => pass.toLowerCase().includes(sign));
+                        const sign = state.game.randomZodiac;
+                        const isSatisfied = pass.toLowerCase().includes(sign);
                         return {
-                            satisfied: !!found,
-                            info: ""
+                            satisfied: isSatisfied,
+                            highlightRegex: isSatisfied ? null : new RegExp(escapeRegExp(sign), "gi")
                         };
                     }
                 },
@@ -1120,12 +1060,13 @@
                 },
                 {
                     id: 26,
-                    description: "Your password must include a car manufacturer.",
+                    description: (state) => `Your password must include the car manufacturer '${state.game.randomCarMaker || "..."}'.`,
                     check: (pass, state) => {
-                        const found = carMakers.find(c => pass.toLowerCase().includes(c.toLowerCase()));
+                        const maker = state.game.randomCarMaker;
+                        const isSatisfied = pass.toLowerCase().includes(maker.toLowerCase());
                         return {
-                            satisfied: !!found,
-                            info: found ? `Found: ${found}` : ""
+                            satisfied: isSatisfied,
+                            highlightRegex: isSatisfied ? null : new RegExp(escapeRegExp(maker), "gi")
                         };
                     }
                 },
@@ -1204,13 +1145,13 @@
                 },
                 {
                     id: 30,
-                    description: "Your password must include a continent.",
+                    description: (state) => `Your password must include the continent '${state.game.randomContinent || "..."}'.`,
                     check: (pass, state) => {
-                        const continents = ["africa", "antarctica", "asia", "australia", "europe", "north america", "south america"];
-                        const found = continents.find(c => pass.toLowerCase().includes(c));
-                        return {
-                            satisfied: !!found,
-                            info: ""
+                        const continent = state.game.randomContinent;
+                        const isSatisfied = pass.toLowerCase().includes(continent.toLowerCase());
+                         return {
+                            satisfied: isSatisfied,
+                            highlightRegex: isSatisfied ? null : new RegExp(escapeRegExp(continent), "gi")
                         };
                     }
                 },
@@ -1286,9 +1227,7 @@
                     id: 35,
                     description: "Your password must include the current hour (24-hour format).",
                     check: (pass, state, isTimeUpdate) => {
-                        if (state.game.activeRuleIds.includes(37)) {
-                            return { satisfied: true, info: "Overridden by rule 37." };
-                        }
+                        // --- REMOVED Override for Rule 37 ---
                         if (state.game.activeRuleIds.includes(50)) {
                             return { satisfied: true, info: "Overridden by rule 50." };
                         }
@@ -1305,9 +1244,7 @@
                     id: 36,
                     description: "Your password must include the current minute.",
                     check: (pass, state, isTimeUpdate) => {
-                        if (state.game.activeRuleIds.includes(37)) {
-                            return { satisfied: true, info: "Overridden by rule 37." };
-                        }
+                        // --- REMOVED Override for Rule 37 ---
                         if (state.game.activeRuleIds.includes(50)) {
                             return { satisfied: true, info: "Overridden by rule 50." };
                         }
@@ -1346,43 +1283,52 @@
                 },
                 {
                     id: 39,
-                    description: "Your password must include a valid, public YouTube video URL.",
+                    description: (state) => `The Puzzle Box: Part ${state.data.puzzlePart || 1} of 3.`,
                     check: (pass, state) => {
-                        const match = pass.match(YOUTUBE_URL_REGEX);
-                        
-                        if (!match) {
-                            // Reset state if URL is removed
-                            if (state.data.youtubeCheckStatus === 'valid') {
-                                state.data.youtubeCheckStatus = null;
-                                state.data.youtubeCheckUrl = null;
-                                state.data.youtubeVideoTitle = null;
-                            }
-                            return { satisfied: false, info: "e.g., youtube.com/watch?v=..." };
-                        }
-                        
-                        const videoUrl = match[0];
-                        const videoId = match[3]; // The 11-character ID
+                        const lowerPass = pass.toLowerCase();
 
-                        // Trigger check if URL is new and not already running
-                        if (videoUrl !== state.data.youtubeCheckUrl && !state.data.isYoutubeCheckRunning) {
-                            // Pass the state.data object to be modified
-                            checkYoutubeUrl(videoUrl, videoId, state.data);
+                        // --- Part 1: Color backward ---
+                        const color = state.game.randomColor;
+                        const part1Solution = reverseString(color);
+                        if (!lowerPass.includes(part1Solution)) {
+                            state.data.puzzlePart = 1;
+                            return {
+                                satisfied: false,
+                                info: `Find the 'Magic Word'. It's your random color ('${color}') spelled backward.`,
+                                highlightRegex: new RegExp(escapeRegExp(part1Solution), 'gi')
+                            };
                         }
 
-                        // Return status based on saved state
-                        switch (state.data.youtubeCheckStatus) {
-                            case 'valid':
-                                // Use the video title if we found one, otherwise just the URL
-                                const infoText = state.data.youtubeVideoTitle ? `Found: ${state.data.youtubeVideoTitle}` : "Video Found";
-                                return { satisfied: true, info: infoText };
-                            case 'invalid':
-                                return { satisfied: false, info: "Video not found or is private.", highlightRegex: new RegExp(escapeRegExp(videoUrl), 'g') };
-                            case 'checking':
-                                return { satisfied: false, info: "Checking URL..." };
-                            default:
-                                // This case happens when the regex matches but the check hasn't started
-                                return { satisfied: false, info: "Validating URL..." };
+                        // --- Part 2: Car maker length ---
+                        const carMaker = state.game.randomCarMaker;
+                        const part2Solution = carMaker.length.toString();
+                        if (!lowerPass.includes(part2Solution)) {
+                            state.data.puzzlePart = 2;
+                            return {
+                                satisfied: false,
+                                info: `Find the 'Secret Number'. It's the length of your random car maker ('${carMaker}').`,
+                                highlightRegex: new RegExp(escapeRegExp(part2Solution), 'g')
+                            };
                         }
+
+                        // --- Part 3: Zodiac without vowels ---
+                        const zodiac = state.game.randomZodiac;
+                        const part3Solution = zodiac.replace(/[aeiou]/gi, ''); // Remove vowels
+                        if (!lowerPass.includes(part3Solution)) {
+                            state.data.puzzlePart = 3;
+                            return {
+                                satisfied: false,
+                                info: `Find the 'Final Key'. It's your random zodiac ('${zodiac}') without its vowels.`,
+                                highlightRegex: new RegExp(escapeRegExp(part3Solution), 'gi')
+                            };
+                        }
+
+                        // --- All parts solved ---
+                        state.data.puzzlePart = 3; // Keep it at 3
+                        return {
+                            satisfied: true,
+                            info: "The Puzzle Box is open!"
+                        };
                     }
                 },
                 {
@@ -1794,16 +1740,24 @@
                 },
                 {
                     id: 66,
-                    description: "Your password must include the answer to 2+2.",
+                    description: (state) => `Your password must include the answer to ${state.game.mathProblemA} + ${state.game.mathProblemB}.`,
                     check: (pass, state) => {
-                        if (state.game.activeRuleIds.includes(50) && (state.game.sacrificedDigit1.toString() === '4' || state.game.sacrificedDigit2.toString() === '4')) {
-                            return { satisfied: true, info: "Overridden by rule 50." };
+                        const answer = (state.game.mathProblemA + state.game.mathProblemB).toString();
+                        
+                        // Check if the answer itself is impossible due to sacrificed digits
+                        if (state.game.activeRuleIds.includes(50)) {
+                             const d1 = state.game.sacrificedDigit1.toString();
+                             const d2 = state.game.sacrificedDigit2.toString();
+                             if (answer.includes(d1) || answer.includes(d2)) {
+                                 return { satisfied: true, info: `Answer (${answer}) is impossible due to sacrificed digits. Rule skipped.` };
+                             }
                         }
-                        const isSatisfied = pass.includes("4");
+                        
+                        const isSatisfied = pass.includes(answer);
                         return {
                             satisfied: isSatisfied,
                             info: "",
-                            highlightRegex: isSatisfied ? null : /4/g
+                            highlightRegex: isSatisfied ? null : new RegExp(escapeRegExp(answer), "g")
                         };
                     }
                 },
@@ -1819,13 +1773,13 @@
                 },
                 {
                     id: 68,
-                    description: "Your password must include the name of a common font.",
+                    description: (state) => `Your password must include the font name '${state.game.randomFont || "..."}'.`,
                     check: (pass, state) => {
-                        const fonts = ["Arial", "Helvetica", "Times New Roman", "Courier New", "Verdana", "Georgia"];
-                        const found = fonts.find(f => pass.includes(f));
+                        const font = state.game.randomFont;
+                        const isSatisfied = pass.includes(font);
                         return {
-                            satisfied: !!found,
-                            info: found ? `Found: ${found}` : ""
+                            satisfied: isSatisfied,
+                            highlightRegex: isSatisfied ? null : new RegExp(escapeRegExp(font), "g")
                         };
                     }
                 },
@@ -1916,10 +1870,12 @@
                             
                             const skipRules = [
                                 ...timeSensitiveRuleIds,
-                                62
+                                62 // Skip base64 decode check
                             ];
                             
                             for(let i = 1; i <= 74; i++) {
+                                // --- REMOVED: No longer need to skip rule 39 ---
+                                
                                 const rule = allRules.find(r => r.id === i);
                                 if (!rule || skipRules.includes(rule.id)) continue;
                                 
@@ -1932,6 +1888,8 @@
                                     break;
                                 }
                             }
+                            
+                            // --- REMOVED: Manual re-check for rule 39 is no longer needed ---
                         }
 
                         if (!textSatisfied) {
@@ -1952,6 +1910,10 @@
                     }
                 }
             ].sort((a, b) => {
+                // Manually sort the rules that had duplicates
+                if (a.id === 8 && b.id === 17) return -1;
+                if (a.id === 17 && b.id === 8) return 1;
+                
                 if (a.id === 50) return 1;
                 if (b.id === 50) return -1;
                 return a.id - b.id;
@@ -1959,7 +1921,7 @@
 
 
             // --- Game State Variables ---
-            const LOCAL_STORAGE_KEY = 'passwordGameState_v25_75rules';
+            const LOCAL_STORAGE_KEY = 'passwordGameState_v25_75rules_random';
             
             const createNewGameState = () => {
                 const randomAtomic = atomicWords[randomInt(0, atomicWords.length - 1)];
@@ -1967,7 +1929,8 @@
                 const riddle = riddleChoice === 1 ? "I have cities, but no houses; forests, but no trees; and water, but no fish. What am I?" : "What has to be broken before you can use it?";
                 const riddleSolution = riddleChoice === 1 ? "map" : "egg"; 
                 
-                const daysAgo = 91;
+                // --- MODIFIED: Random daysAgo ---
+                const daysAgo = randomInt(30, 360);
                 const pastDate = new Date();
                 pastDate.setDate(pastDate.getDate() - daysAgo);
                 const pastDayName = dayNames[pastDate.getDay()];
@@ -1998,9 +1961,24 @@
 
                     if (validMin <= validMax) {
                         digitSumTarget = randomInt(validMin, validMax);
+                        // --- NEW: Ensure the target sum is ODD to be compatible with Rule 34 ---
+                        if (digitSumTarget % 2 === 0) {
+                            if (digitSumTarget + 1 <= validMax) {
+                                digitSumTarget += 1; // Try one higher
+                            } else if (digitSumTarget - 1 >= validMin) {
+                                digitSumTarget -= 1; // Try one lower
+                            } else {
+                                continue; // This range only had an even number, try again
+                            }
+                        }
+                        // --- END NEW ---
                         isAchievable = true;
                     }
                 }
+                
+                // --- NEW: Dynamic math problem for Rule 66 ---
+                const mathProblemA = randomInt(10, 50);
+                const mathProblemB = randomInt(10, 50);
                 
                 return {
                     password: "",
@@ -2026,6 +2004,17 @@
                     sacrificedDigit2: d2, 
                     riddle: riddle,
                     riddleSolution: riddleSolution,
+                    mathProblemA: mathProblemA,
+                    mathProblemB: mathProblemB,
+                    // --- NEW RANDOMIZED RULES ---
+                    randomSpecialChar: specialCharsList[randomInt(0, specialCharsList.length - 1)],
+                    randomEmoji: emojiList[randomInt(0, emojiList.length - 1)],
+                    randomColor: colorList[randomInt(0, colorList.length - 1)],
+                    randomZodiac: zodiacList[randomInt(0, zodiacList.length - 1)],
+                    randomCarMaker: carMakers[randomInt(0, carMakers.length - 1)],
+                    randomContinent: continentList[randomInt(0, continentList.length - 1)],
+                    randomFont: fontList[randomInt(0, fontList.length - 1)],
+                    // --- END NEW ---
                     hurricaneFired: false,
                     peteHasBeenAdded: false, 
                     peteIsAlive: true,
@@ -2039,13 +2028,10 @@
             };
             
             let gameState = createNewGameState();
+            
+            // --- MODIFIED: Removed YouTube state, added puzzle state ---
             let ruleStateData = {
-                // --- NEW: YouTube check state ---
-                youtubeCheckUrl: null,       // The last URL we checked
-                youtubeCheckStatus: null,    // null | 'checking' | 'valid' | 'invalid'
-                isYoutubeCheckRunning: false,
-                youtubeVideoTitle: null      // Store the video title if found
-                // --- END: YouTube check state ---
+                puzzlePart: 1 // For the new Rule 39 puzzle
             }; 
             let lastTimeBasedResults = {}; 
             let isGameWon = false; 
@@ -2080,7 +2066,27 @@
                 if (savedState) {
                     try {
                         const loaded = JSON.parse(savedState);
-                        gameState = { ...createNewGameState(), ...loaded };
+                        
+                        // --- MODIFICATION: Must merge, not overwrite, to get new random rules ---
+                        const newGame = createNewGameState();
+                        const oldGame = loaded;
+                        
+                        // Create a new state, but keep old progress
+                        gameState = {
+                            ...newGame, // Start with all new random values
+                            ...oldGame, // Overwrite with old values IF they exist
+                            
+                            // Manually ensure new random values that *conflict* with old state are updated
+                            // e.g., if we added a new random char, the old password won't have it.
+                            // But for this game, it's better to load the old random values.
+                            // So, we'll flip it: load old, then add new keys if they're missing.
+                        };
+                        
+                        // Let's try the other way: Load old, and add new keys if they don't exist
+                        // This preserves the "randomness" of the saved game.
+                        let loadedState = JSON.parse(savedState);
+                        gameState = { ...createNewGameState(), ...loadedState };
+                        
                         
                         if (!gameState.activeRuleIds || gameState.activeRuleIds.length === 0) {
                             resetGame(false); 
@@ -2105,6 +2111,17 @@
                         renderRule(rule);
                     }
                 });
+                
+                // Manually re-sort the loaded rules
+                const loadedRuleElements = Array.from(rulesList.children);
+                loadedRuleElements.sort((a, b) => {
+                    const idA = parseInt(a.id.split('-')[1]);
+                    const idB = parseInt(b.id.split('-')[1]);
+                    const indexA = gameState.activeRuleIds.indexOf(idA);
+                    const indexB = gameState.activeRuleIds.indexOf(idB);
+                    return indexA - indexB;
+                }).forEach(el => rulesList.appendChild(el));
+                
                 
                 checkRulesAndReorder(false); 
                 resizeTextarea();
@@ -2134,13 +2151,9 @@
 
                 gameState = createNewGameState();
                 
+                // --- MODIFIED: Reset puzzle state ---
                 ruleStateData = {
-                    // --- NEW: YouTube check state ---
-                    youtubeCheckUrl: null,
-                    youtubeCheckStatus: null, 
-                    isYoutubeCheckRunning: false,
-                    youtubeVideoTitle: null
-                    // --- END: YouTube check state ---
+                    puzzlePart: 1
                 }; 
                 lastTimeBasedResults = {};
                 ruleCleanupTimers = {}; // <-- ADDED: Reset the timer map
@@ -2284,8 +2297,12 @@
                     
                     if (typeof rule.description === 'function') {
                         const ruleTextElement = ruleElement.querySelector('.rule-text');
-                        const description = rule.description(currentState);
-                        ruleTextElement.childNodes[0].nodeValue = description + " ";
+                        // --- FIX: Check if ruleTextElement exists ---
+                        if (ruleTextElement && ruleTextElement.childNodes[0]) {
+                            const description = rule.description(currentState);
+                            // Update the rule text (e.g., for the puzzle)
+                            ruleTextElement.childNodes[0].nodeValue = description + " ";
+                        }
                     }
                 }
                 
@@ -2342,7 +2359,8 @@
                 const orderHasChanged = JSON.stringify(orderedRuleIds) !== JSON.stringify(currentDomIds);
 
                 // Only run the expensive FLIP animation if the order is different
-                if (orderHasChanged) {
+                // AND this is not a time-only update (which would be spammy)
+                if (orderHasChanged && !isTimeUpdate) {
                 
                     /* --- FLIP ANIMATION --- */
 
@@ -2447,7 +2465,7 @@
                             // --- FIX: Must call checkRulesAndReorder immediately after render ---
                             // This ensures the new rule is immediately processed and animated
                             // (the 'orderHasChanged' check will catch it)
-                            checkRulesAndReorder(false); 
+                            // checkRulesAndReorder(false); // This is now handled by the main loop
                         }
                     } else if (gameState.activeRuleIds.length === allRules.length) {
                         const finalRuleResult = currentState.results[50];
